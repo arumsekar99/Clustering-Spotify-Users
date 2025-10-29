@@ -2,3 +2,6 @@ streamlit
 pandas
 plotly
 openpyxl
+seaborn
+kmodes.kprototypes
+sklearn.preprocessing
