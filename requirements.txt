@@ -1,7 +1,6 @@
 streamlit
 pandas
-plotly
-openpyxl
+matplotlib
 seaborn
-kmodes.kprototypes
-sklearn.preprocessing
+scikit-learn
+kmodes
