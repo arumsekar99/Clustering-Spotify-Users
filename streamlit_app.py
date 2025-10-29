@@ -15,7 +15,7 @@ st.markdown("Analisis segmentasi pengguna Spotify berdasarkan perilaku mendengar
 # ======================
 # 2. UPLOAD DATA
 # ======================
-uploaded_file = st.file_uploader("📂 Upload dataset CSV", type=["csv"])
+uploaded_file = st.file_uploader("spotify_churn_dataset.csv", type=["csv"])
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
     st.subheader("📊 Data Preview")
