@@ -176,36 +176,7 @@ with tab3:
                 5: "🎧 Moderate Free Users",
                 6: "💎 Premium Loyalists"
             }
-            # ------------------------------------------------------------
-            # 3️⃣ VISUALISASI CLUSTER
-            # ------------------------------------------------------------
-            st.subheader("🎨 Visualisasi Distribusi Cluster")
-            cluster_counts = df_scaled["Cluster_Name"].value_counts()
-
-            col1, col2 = st.columns(2)
-            with col1:
-                sns.countplot(x="Cluster_Name", data=df_scaled, palette="viridis")
-                plt.xticks(rotation=30, ha="right")
-                plt.title("Distribusi Jumlah Pengguna per Cluster")
-                st.pyplot(plt)
-            with col2:
-                fig, ax = plt.subplots(figsize=(5,5))
-                ax.pie(cluster_counts, labels=cluster_counts.index, autopct="%1.1f%%", startangle=90, colors=sns.color_palette("viridis", len(cluster_counts)))
-                ax.axis("equal")
-                plt.title("Proporsi Pengguna per Cluster")
-                st.pyplot(fig)
-
-            # ------------------------------------------------------------
-            # 4️⃣ INSIGHT
-            # ------------------------------------------------------------
-            st.subheader("💬 Insight Tiap Cluster")
-            for i, name in cluster_map.items():
-                st.markdown(f"### {name}")
-                st.write(f"- Jumlah pengguna: {len(df_scaled[df_scaled['Cluster']==i])}")
-                st.write(f"- Ciri utama: {df_scaled[df_scaled['Cluster']==i].select_dtypes(include='number').mean().round(2).to_dict()}")
-                st.write("---")
-
-
+          
             # Profil tiap cluster
             st.subheader("📊 Profil Tiap Cluster (Numerik)")
             num_summary = df_cluster.groupby("Cluster")[numerical_cols].mean().round(2)
