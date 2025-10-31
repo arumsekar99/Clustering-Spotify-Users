@@ -176,6 +176,7 @@ with tab3:
                 5: "🎧 Moderate Free Users",
                 6: "💎 Premium Loyalists"
             }
+            df_cluster["Cluster_Name"] = df_cluster["Cluster"].map(cluster_map)
           # ------------------------------------------------------------
             # 3️⃣ VISUALISASI CLUSTER
             # ------------------------------------------------------------
