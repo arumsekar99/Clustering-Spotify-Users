@@ -126,11 +126,11 @@ with tab2:
     for col in df_clean.select_dtypes(include="object").columns:
         df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
 
-    st.write("✅ Missing values telah diganti dengan median (numerik) & mode (kategori).")
+    st.write("✅ No Missing values in Dataset.")
 
-    # Log transform (untuk kolom skewed)
-    st.markdown("**📈 Log Transform pada kolom yang skewed**")
-    skewed_cols = ["listening_time", "songs_played_per_day", "ads_listened_per_week"]
+    # Log transform (untuk handle outlier)
+    st.markdown("**📈 Log Transform pada kolom dengan outlier**")
+    skewed_cols = ["ads_listened_per_week"]
     for col in skewed_cols:
         if col in df_clean.columns:
             df_clean[col] = np.log1p(df_clean[col])
@@ -169,13 +169,13 @@ with tab2:
             # Nama cluster (berdasarkan insight kamu)
             # ------------------------------------------------------------
             cluster_map = {
-                0: "🧠 Risky Premiums (High-Skip Listeners)",
-                1: "💼 Steady Premium Users",
-                2: "🎵 Loyal Premium Listeners",
-                3: "🌍 Engaged Free Explorers",
-                4: "⏸️ Passive Free Listeners",
-                5: "🎧 Moderate Free Users",
-                6: "💎 Premium Loyalists"
+                0: "🧠 Selective Premium Listener",
+                1: "💼 Loyal Premium User",
+                2: "🎵 Premium Power Listener",
+                3: "🌍 Free Casual Listene",
+                4: "⏸️ Student Active Streamer",
+                5: "🎧 Ad-Heavy Mobile User",
+                6: "💎 Loyal Premium Enthusiast"
             }
             df_scaled["Cluster_Name"] = df_scaled["Cluster"].map(cluster_map)
 
