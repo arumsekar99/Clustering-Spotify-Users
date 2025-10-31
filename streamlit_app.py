@@ -168,13 +168,13 @@ with tab3:
             # Nama cluster (berdasarkan insight kamu)
             # ------------------------------------------------------------
             cluster_map = {
-                0: "🧠 Risky Premiums (High-Skip Listeners)",
-                1: "💼 Steady Premium Users",
-                2: "🎵 Loyal Premium Listeners",
-                3: "🌍 Engaged Free Explorers",
-                4: "⏸️ Passive Free Listeners",
-                5: "🎧 Moderate Free Users",
-                6: "💎 Premium Loyalists"
+                 0: "🧠 Selective Premium Listener",
+                1: "💼 Loyal Premium User",
+                2: "🎵 Premium Power Listener",
+                3: "🌍 Free Casual Listene",
+                4: "⏸️ Student Active Streamer",
+                5: "🎧 Ad-Heavy Mobile User",
+                6: "💎 Loyal Premium Enthusiast"
             }
             df_cluster["Cluster_Name"] = df_cluster["Cluster"].map(cluster_map)
           # ------------------------------------------------------------
