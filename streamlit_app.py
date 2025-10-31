@@ -131,16 +131,6 @@ with tab2:
             df_clean[f'{col}_log'] = np.log1p(df_clean[col])
     st.write("Kolom hasil log transform:", log_cols)
 
-    # Scaling
-    st.subheader("⚖️ StandardScaler untuk fitur numerik")
-    num_cols = ['age','listening_time','songs_played_per_day','skip_rate','ads_listened_per_week','offline_listening']
-    scaler = StandardScaler()
-    df_scaled_num = pd.DataFrame(scaler.fit_transform(df_clean[num_cols]), columns=num_cols)
-    df_scaled = pd.concat([df_clean, df_scaled_num.add_suffix('_scaled')], axis=1)
-    st.dataframe(df_scaled.head())
-
-    st.info("✅ Data siap untuk clustering. Lanjut ke tab berikutnya.")
-
 # ============================================================
 # 🧩 TAB 3: CLUSTERING
 # ============================================================
@@ -151,7 +141,16 @@ with tab3:
     categorical_cols = ['gender','country','subscription_type','device_type']
     numerical_cols = ['age','listening_time','songs_played_per_day','skip_rate','ads_listened_per_week','offline_listening']
 
-    df_cluster = pd.concat([df[categorical_cols], df[numerical_cols]], axis=1)
+     # Scaling
+    st.subheader("⚖️ StandardScaler untuk fitur numerik")
+    num_cols = ['age','listening_time','songs_played_per_day','skip_rate','ads_listened_per_week','offline_listening']
+    scaler = StandardScaler()
+    df_scaled_num = pd.DataFrame(scaler.fit_transform(df_clean[num_cols]), columns=num_cols)
+    df_scaled = pd.concat([df_clean, df_scaled_num.add_suffix('_scaled')], axis=1)
+    st.dataframe(df_scaled.head())
+
+    st.info("✅ Data siap untuk clustering.")
+    df_cluster = pd.concat([df[categorical_cols], df_scaled_num], axis=1)
     cat_idx = [df_cluster.columns.get_loc(col) for col in categorical_cols]
 
     # Pengaturan parameter
@@ -165,6 +164,47 @@ with tab3:
             clusters = kproto.fit_predict(df_cluster, categorical=cat_idx)
             df_cluster["Cluster"] = clusters
             st.success("✅ Clustering selesai!")
+             # ------------------------------------------------------------
+            # Nama cluster (berdasarkan insight kamu)
+            # ------------------------------------------------------------
+            cluster_map = {
+                0: "🧠 Risky Premiums (High-Skip Listeners)",
+                1: "💼 Steady Premium Users",
+                2: "🎵 Loyal Premium Listeners",
+                3: "🌍 Engaged Free Explorers",
+                4: "⏸️ Passive Free Listeners",
+                5: "🎧 Moderate Free Users",
+                6: "💎 Premium Loyalists"
+            }
+            # ------------------------------------------------------------
+            # 3️⃣ VISUALISASI CLUSTER
+            # ------------------------------------------------------------
+            st.subheader("🎨 Visualisasi Distribusi Cluster")
+            cluster_counts = df_scaled["Cluster_Name"].value_counts()
+
+            col1, col2 = st.columns(2)
+            with col1:
+                sns.countplot(x="Cluster_Name", data=df_scaled, palette="viridis")
+                plt.xticks(rotation=30, ha="right")
+                plt.title("Distribusi Jumlah Pengguna per Cluster")
+                st.pyplot(plt)
+            with col2:
+                fig, ax = plt.subplots(figsize=(5,5))
+                ax.pie(cluster_counts, labels=cluster_counts.index, autopct="%1.1f%%", startangle=90, colors=sns.color_palette("viridis", len(cluster_counts)))
+                ax.axis("equal")
+                plt.title("Proporsi Pengguna per Cluster")
+                st.pyplot(fig)
+
+            # ------------------------------------------------------------
+            # 4️⃣ INSIGHT
+            # ------------------------------------------------------------
+            st.subheader("💬 Insight Tiap Cluster")
+            for i, name in cluster_map.items():
+                st.markdown(f"### {name}")
+                st.write(f"- Jumlah pengguna: {len(df_scaled[df_scaled['Cluster']==i])}")
+                st.write(f"- Ciri utama: {df_scaled[df_scaled['Cluster']==i].select_dtypes(include='number').mean().round(2).to_dict()}")
+                st.write("---")
+
 
             # Profil tiap cluster
             st.subheader("📊 Profil Tiap Cluster (Numerik)")
