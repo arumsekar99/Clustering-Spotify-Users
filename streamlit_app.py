@@ -1,20 +1,28 @@
 # ============================================================
-# 🎧 Spotify User Clustering Dashboard (EDA + Cleaning + Age Group + Clustering)
+# 🎧 Spotify User Segmentation Dashboard (EDA + K-Prototypes)
 # ============================================================
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scipy.stats as stats
 from kmodes.kprototypes import KPrototypes
 from sklearn.preprocessing import StandardScaler
 
 # ------------------------------------------------------------
 # 1️⃣ SETUP DASHBOARD
 # ------------------------------------------------------------
-st.set_page_config(page_title="Spotify User Clustering Dashboard", layout="wide")
-st.title("🎧 Spotify User Clustering Dashboard")
-st.markdown("Analisis EDA, pembersihan data, pembentukan kelompok usia, dan segmentasi pengguna Spotify menggunakan K-Prototypes.")
+st.set_page_config(page_title="Spotify User Clustering", layout="wide")
+st.title("🎧 Spotify User Segmentation Dashboard")
+st.markdown("""
+Dashboard ini menampilkan:
+- EDA (distribusi, korelasi, perilaku pengguna)
+- Pembersihan data dan transformasi log
+- K-Prototypes Clustering
+- Analisis churn per cluster
+""")
 
 # ------------------------------------------------------------
 # 2️⃣ LOAD DATA
@@ -25,22 +33,32 @@ def load_data():
 
 df = load_data()
 st.sidebar.success("✅ Data berhasil dimuat!")
-st.sidebar.write(f"Jumlah baris: {df.shape[0]}, Jumlah kolom: {df.shape[1]}")
+st.sidebar.write(f"Jumlah baris: {df.shape[0]} | Jumlah kolom: {df.shape[1]}")
 
 # ------------------------------------------------------------
-# 3️⃣ TAMBAH KOLOM AGE GROUP
+# 3️⃣ CEK DUPLIKAT DAN MISSING VALUE
+# ------------------------------------------------------------
+st.subheader("📋 Cek Data Awal")
+col1, col2 = st.columns(2)
+with col1:
+    st.write("**Cek duplikat:**", round(len(df.drop_duplicates()) / len(df), 2))
+with col2:
+    st.write("**Missing values per kolom:**")
+    st.write(df.isnull().sum())
+
+# ------------------------------------------------------------
+# 4️⃣ PEMBENTUKAN KOLOM AGE GROUP
 # ------------------------------------------------------------
 if "age" in df.columns:
-    st.sidebar.markdown("### 👤 Membentuk Kelompok Usia")
-    st.sidebar.info("Kolom `age_group` dibuat otomatis dari kolom `age`.")
-    bins = [0, 25, 35, 45, 59]
-    labels = ["16-25", "26-35", "36-45", "46-59"]
-    df["age_group"] = pd.cut(df["age"], bins=bins, labels=labels, right=True)
+    bins = [15, 25, 35, 45, 60]
+    labels = ['16-25', '26-35', '36-45', '46-59']
+    df["age_group"] = pd.cut(df["age"], bins=bins, labels=labels, right=True, include_lowest=True)
+    st.success("✅ Kolom `age_group` berhasil dibuat.")
 else:
-    st.warning("Kolom 'age' tidak ditemukan — tidak bisa membuat age_group.")
+    st.warning("⚠️ Kolom `age` tidak ditemukan di dataset.")
 
 # Tabs utama
-tab1, tab2 = st.tabs(["📊 Exploratory Data Analysis", "🧩 Clustering (K-Prototypes)"])
+tab1, tab2, tab3 = st.tabs(["📊 EDA", "⚙️ Data Cleaning + Transformasi", "🧩 K-Prototypes Clustering"])
 
 # ============================================================
 # 📊 TAB 1: EDA
@@ -48,171 +66,131 @@ tab1, tab2 = st.tabs(["📊 Exploratory Data Analysis", "🧩 Clustering (K-Prot
 with tab1:
     st.header("📊 Exploratory Data Analysis (EDA)")
 
-    # ------------------------------------------------------------
     # Distribusi churn
-    # ------------------------------------------------------------
-    st.subheader("1️⃣ Distribusi Pelanggan Churn vs Tidak Churn")
     if "is_churned" in df.columns:
-        churn_counts = df["is_churned"].value_counts()
-        fig1, ax1 = plt.subplots(figsize=(5, 5))
-        ax1.pie(
-            churn_counts,
-            labels=["Churned", "Not Churned"],
-            autopct='%1.1f%%',
-            startangle=90,
-            colors=['#ff9999','#66b3ff'],
-            explode=(0.05, 0)
-        )
-        ax1.set_title("Distribusi Pelanggan Churn vs Tidak Churn")
-        st.pyplot(fig1)
-    else:
-        st.info("Kolom `is_churned` tidak ditemukan di dataset.")
+        churn_counts = df["is_churned"].value_counts(normalize=True)
+        labels = ['Churned', 'Not Churned']
+        fig, ax = plt.subplots(figsize=(5,5))
+        ax.pie(churn_counts, labels=labels, autopct='%1.1f%%', colors=['salmon', 'skyblue'], startangle=90, explode=(0.05, 0))
+        ax.set_title('Distribusi Pelanggan Churn vs Tidak Churn')
+        st.pyplot(fig)
 
-    # ------------------------------------------------------------
-    # Perbandingan perilaku churn vs non-churn
-    # ------------------------------------------------------------
-    st.subheader("2️⃣ Perbandingan Rata-rata Perilaku antara Churned vs Non-Churned")
-    behavior_cols = ["listening_time", "songs_played_per_day", "skip_rate", "ads_listened_per_week", "offline_listening"]
-    if "is_churned" in df.columns and all(col in df.columns for col in behavior_cols):
-        mean_behavior = df.groupby("is_churned")[behavior_cols].mean()
-        mean_behavior.plot(kind='bar', figsize=(8,5), color=['purple', 'gold'])
+    # Pola perilaku churn vs non-churn
+    st.subheader("🎵 Perbandingan Rata-rata Perilaku antara Churned vs Non-Churned")
+    behavior_cols = ['listening_time', 'songs_played_per_day', 'skip_rate', 'ads_listened_per_week', 'offline_listening']
+    if all(col in df.columns for col in behavior_cols):
+        mean_behavior = df.groupby("is_churned")[behavior_cols].mean().T
+        mean_behavior.plot(kind='bar', figsize=(8,5), colormap='viridis')
         plt.title("Perbandingan Rata-rata Perilaku antara Churned vs Non-Churned")
-        plt.ylabel("Rata-rata Nilai")
         st.pyplot(plt)
-    else:
-        st.info("Kolom perilaku atau churn tidak lengkap.")
 
-    # ------------------------------------------------------------
-    # Perilaku per tipe langganan
-    # ------------------------------------------------------------
-    st.subheader("3️⃣ Perilaku Pengguna Berdasarkan Tipe Langganan")
+    # Perilaku berdasarkan tipe langganan
+    st.subheader("💎 Perilaku Pengguna Berdasarkan Tipe Langganan")
     if "subscription_type" in df.columns:
         mean_subs = df.groupby("subscription_type")[behavior_cols].mean()
-        mean_subs.plot(kind='bar', figsize=(8,5))
+        mean_subs.plot(kind='bar', figsize=(8,5), colormap='plasma')
         plt.title("Perilaku Pengguna Berdasarkan Tipe Langganan")
-        plt.ylabel("Rata-rata Nilai")
         st.pyplot(plt)
 
-    # ------------------------------------------------------------
-    # Perilaku berdasarkan kelompok usia
-    # ------------------------------------------------------------
-    st.subheader("4️⃣ Rata-rata Lagu yang Diputar per Hari Berdasarkan Kelompok Usia")
+    # Usia vs rata-rata lagu
+    st.subheader("🧑‍🎤 Rata-rata Lagu yang Diputar per Hari berdasarkan Kelompok Usia")
     if "age_group" in df.columns:
-        mean_age = df.groupby("age_group")["songs_played_per_day"].mean().sort_values(ascending=False)
-        fig_age, ax_age = plt.subplots(figsize=(8,5))
-        sns.barplot(x=mean_age.index, y=mean_age.values, palette="viridis", ax=ax_age)
-        ax_age.set_title("Rata-rata Lagu yang Diputar per Hari berdasarkan Kelompok Usia (Diurutkan)")
-        ax_age.set_ylabel("Rata-rata Lagu per Hari")
-        ax_age.set_xlabel("Kelompok Usia")
-        st.pyplot(fig_age)
-    else:
-        st.info("Kolom `age_group` tidak tersedia.")
+        age_activity = df.groupby('age_group')['songs_played_per_day'].mean().reset_index()
+        age_activity = age_activity.sort_values(by='songs_played_per_day', ascending=False)
+        fig2, ax2 = plt.subplots(figsize=(8,5))
+        sns.barplot(x='age_group', y='songs_played_per_day', data=age_activity, palette='viridis')
+        ax2.set_title('Rata-rata Lagu yang Diputar per Hari berdasarkan Kelompok Usia (Diurutkan)')
+        st.pyplot(fig2)
+
+    # Heatmap korelasi
+    st.subheader("🔥 Heatmap Korelasi Variabel Numerik")
+    corr = df.corr(numeric_only=True)
+    fig3, ax3 = plt.subplots(figsize=(8,6))
+    sns.heatmap(corr, annot=True, cmap='coolwarm', fmt='.2f', ax=ax3)
+    st.pyplot(fig3)
 
 # ============================================================
-# 🧩 TAB 2: CLUSTERING
+# ⚙️ TAB 2: CLEANING & TRANSFORMASI
 # ============================================================
 with tab2:
-    st.header("🧹 Data Cleaning dan 🧩 Clustering (K-Prototypes)")
-
-    # ------------------------------------------------------------
-    # 1️⃣ Data Cleaning
-    # ------------------------------------------------------------
-    st.subheader("🧹 Data Cleaning")
+    st.header("🧹 Data Cleaning dan Transformasi Log")
 
     df_clean = df.copy()
 
-    # Handle missing values
+    # Missing values
     df_clean = df_clean.fillna(df_clean.median(numeric_only=True))
-    for col in df_clean.select_dtypes(include="object").columns:
+    for col in df_clean.select_dtypes(include='object').columns:
         df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
+    st.success("✅ Missing value telah ditangani.")
 
-    st.write("✅ No Missing values in Dataset.")
-
-    # Log transform (untuk handle outlier)
-    st.markdown("**📈 Log Transform pada kolom dengan outlier**")
-    skewed_cols = ["ads_listened_per_week"]
-    for col in skewed_cols:
+    # Log transform
+    st.subheader("📈 Log Transform")
+    log_cols = ['ads_listened_per_week']
+    for col in log_cols:
         if col in df_clean.columns:
-            df_clean[col] = np.log1p(df_clean[col])
-    st.write(f"✅ Log transform dilakukan pada kolom: {', '.join(skewed_cols)}")
+            df_clean[f'{col}_log'] = np.log1p(df_clean[col])
+    st.write("Kolom hasil log transform:", log_cols)
 
-    # StandardScaler
-    st.markdown("**⚖️ Standardisasi Fitur Numerik**")
+    # Scaling
+    st.subheader("⚖️ StandardScaler untuk fitur numerik")
+    num_cols = ['age','listening_time','songs_played_per_day','skip_rate','ads_listened_per_week','offline_listening']
     scaler = StandardScaler()
-    num_cols = df_clean.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    df_scaled = df_clean.copy()
-    df_scaled[num_cols] = scaler.fit_transform(df_clean[num_cols])
-    st.write("✅ Fitur numerik telah distandarisasi dengan StandardScaler.")
+    df_scaled_num = pd.DataFrame(scaler.fit_transform(df_clean[num_cols]), columns=num_cols)
+    df_scaled = pd.concat([df_clean, df_scaled_num.add_suffix('_scaled')], axis=1)
     st.dataframe(df_scaled.head())
 
-    # ------------------------------------------------------------
-    # 2️⃣ Jalankan Clustering
-    # ------------------------------------------------------------
-    st.subheader("⚙️ Jalankan K-Prototypes Clustering")
+    st.info("✅ Data siap untuk clustering. Lanjut ke tab berikutnya.")
+
+# ============================================================
+# 🧩 TAB 3: CLUSTERING
+# ============================================================
+with tab3:
+    st.header("🧩 K-Prototypes Clustering")
+
+    # Gabung data numerik + kategorikal
+    categorical_cols = ['gender','country','subscription_type','device_type']
+    numerical_cols = ['age','listening_time','songs_played_per_day','skip_rate','ads_listened_per_week','offline_listening']
+
+    df_cluster = pd.concat([df[categorical_cols], df[numerical_cols]], axis=1)
+    cat_idx = [df_cluster.columns.get_loc(col) for col in categorical_cols]
+
+    # Pengaturan parameter
+    st.markdown("### ⚙️ Parameter Clustering")
     n_clusters = st.slider("Jumlah Cluster (K)", 2, 10, 7)
     gamma = st.number_input("Nilai Gamma", 0.0, 2.0, 0.1, 0.1)
 
     if st.button("🚀 Jalankan K-Prototypes"):
         try:
-            cat_cols = df_scaled.select_dtypes(include=['object', 'category']).columns.tolist()
-            for c in cat_cols:
-                df_scaled[c] = df_scaled[c].astype('category')
-
-            cat_idx = [df_scaled.columns.get_loc(c) for c in cat_cols]
             kproto = KPrototypes(n_clusters=n_clusters, gamma=gamma, init='Cao', random_state=42)
-            clusters = kproto.fit_predict(df_scaled, categorical=cat_idx)
-            df_scaled["Cluster"] = clusters
-
+            clusters = kproto.fit_predict(df_cluster, categorical=cat_idx)
+            df_cluster["Cluster"] = clusters
             st.success("✅ Clustering selesai!")
 
-            # ------------------------------------------------------------
-            # Nama cluster (berdasarkan insight kamu)
-            # ------------------------------------------------------------
-            cluster_map = {
-                0: "🧠 Selective Premium Listener",
-                1: "💼 Loyal Premium User",
-                2: "🎵 Premium Power Listener",
-                3: "🌍 Free Casual Listene",
-                4: "⏸️ Student Active Streamer",
-                5: "🎧 Ad-Heavy Mobile User",
-                6: "💎 Loyal Premium Enthusiast"
-            }
-            df_scaled["Cluster_Name"] = df_scaled["Cluster"].map(cluster_map)
+            # Profil tiap cluster
+            st.subheader("📊 Profil Tiap Cluster (Numerik)")
+            num_summary = df_cluster.groupby("Cluster")[numerical_cols].mean().round(2)
+            st.dataframe(num_summary)
 
-            # ------------------------------------------------------------
-            # Visualisasi hasil clustering
-            # ------------------------------------------------------------
-            st.subheader("🎨 Distribusi Cluster")
-            cluster_counts = df_scaled["Cluster_Name"].value_counts()
+            st.subheader("💬 Profil Kategorikal")
+            cat_summary = df_cluster.groupby("Cluster")[categorical_cols].agg(lambda x: x.mode().iloc[0])
+            st.dataframe(cat_summary)
 
-            col1, col2 = st.columns(2)
-            with col1:
-                fig_bar, ax_bar = plt.subplots(figsize=(6,4))
-                sns.countplot(x="Cluster_Name", data=df_scaled, palette="viridis", ax=ax_bar)
-                plt.xticks(rotation=30, ha="right")
-                ax_bar.set_title("Distribusi Jumlah Pengguna per Cluster")
-                st.pyplot(fig_bar)
-            with col2:
-                fig_pie, ax_pie = plt.subplots(figsize=(5,5))
-                ax_pie.pie(cluster_counts, labels=cluster_counts.index, autopct="%1.1f%%", startangle=90, colors=sns.color_palette("viridis", len(cluster_counts)))
-                ax_pie.axis("equal")
-                st.pyplot(fig_pie)
+            # Distribusi cluster
+            fig4, ax4 = plt.subplots(figsize=(6,4))
+            sns.countplot(x="Cluster", data=df_cluster, palette="Set2", ax=ax4)
+            ax4.set_title("Distribusi Spotify Users berdasarkan Cluster")
+            st.pyplot(fig4)
 
-            # ------------------------------------------------------------
-            # Insight Tiap Cluster
-            # ------------------------------------------------------------
-            st.subheader("💬 Insight Tiap Cluster")
-            for i, name in cluster_map.items():
-                st.markdown(f"### {name}")
-                st.write(f"- Jumlah pengguna: {len(df_scaled[df_scaled['Cluster']==i])}")
-                st.write(f"- Rata-rata perilaku utama:", df_scaled[df_scaled['Cluster']==i].select_dtypes(include='number').mean().round(2).to_dict())
-                st.write("---")
+            # Analisis churn
+            if "is_churned" in df.columns:
+                churn_merge = df_cluster.join(df["is_churned"])
+                churn_rate = churn_merge.groupby("Cluster")["is_churned"].mean() * 100
+                st.subheader("📉 Tingkat Churn per Cluster (%)")
+                st.bar_chart(churn_rate)
 
-            # ------------------------------------------------------------
             # Download hasil
-            # ------------------------------------------------------------
-            csv = df_scaled.to_csv(index=False).encode('utf-8')
+            csv = df_cluster.to_csv(index=False).encode('utf-8')
             st.download_button("💾 Unduh Hasil Cluster (CSV)", csv, "hasil_cluster_spotify.csv", "text/csv")
 
         except Exception as e:
-            st.error(f"Terjadi kesalahan saat clustering: {e}")
+            st.error(f"Terjadi kesalahan: {e}")
